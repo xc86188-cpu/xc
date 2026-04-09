@@ -1,0 +1,71 @@
+name: Deploy To Cloudflare Pages (Free)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cf-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    env:
+      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_PAGES_PROJECT: ${{ secrets.CLOUDFLARE_PAGES_PROJECT }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Required Secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for key in CF_ACCOUNT_ID CF_API_TOKEN CF_PAGES_PROJECT; do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::Missing secret: ${key}"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Prepare Deploy Folder
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEPLOY_DIR="$RUNNER_TEMP/site-dist"
+          mkdir -p "$DEPLOY_DIR"
+
+          rsync -av --delete \
+            --exclude=".git/" \
+            --exclude=".github/" \
+            --exclude="deploy/" \
+            --exclude="*.md" \
+            --exclude="*.sql" \
+            --exclude="*.ps1" \
+            --exclude="*.py" \
+            --exclude="*.zip" \
+            --exclude="*.docx" \
+            --exclude="*.rtf" \
+            --exclude="*.xlsx" \
+            ./ "$DEPLOY_DIR"/
+
+          echo "DEPLOY_DIR=$DEPLOY_DIR" >> "$GITHUB_ENV"
+
+      - name: Deploy To Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy ${{ env.DEPLOY_DIR }} --project-name=${{ secrets.CLOUDFLARE_PAGES_PROJECT }} --branch=main
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
