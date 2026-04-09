@@ -152,7 +152,7 @@ input:focus-visible {
 
 .brand span {
   display: grid;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -164,7 +164,15 @@ input:focus-visible {
 .brand small {
   color: var(--ink-soft);
   font-size: 0.84rem;
-  line-height: 1.3;
+  line-height: 1.22;
+}
+
+.brand-meta {
+  max-width: none;
+  font-size: 0.76rem;
+  line-height: 1.26;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .brand-note {
@@ -1038,6 +1046,11 @@ input:focus-visible {
 
   .brand small {
     line-height: 1.22;
+  }
+
+  .brand-meta {
+    font-size: 0.7rem;
+    line-height: 1.28;
   }
 
   .brand-note {
