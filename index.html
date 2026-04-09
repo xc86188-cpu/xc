@@ -8,13 +8,22 @@
       name="description"
       content="一步一步选择场景、脚型、平时鞋码和脚感追求，最后直接匹配攀岩鞋款与试穿尺码。"
     />
-    <link rel="stylesheet" href="styles.css?v=20260409-1228" />
+    <link rel="preload" as="image" href="logo-banana-clean-96.webp" fetchpriority="high" />
+    <link rel="preload" as="image" href="logo-banana-clean-128.webp" fetchpriority="high" />
+    <link rel="stylesheet" href="styles.css?v=20260409-1515" />
   </head>
   <body>
     <div class="page-shell">
       <header class="topbar" id="topBar">
         <a class="brand" href="#">
-          <img src="logo-banana-clean-160.png" alt="Banana Climbing Logo" />
+          <img
+            src="logo-banana-clean-96.webp"
+            alt="Banana Climbing Logo"
+            width="42"
+            height="42"
+            decoding="async"
+            fetchpriority="high"
+          />
           <span>
             <strong>Banana Climbing Store</strong>
             <small>香蕉攀岩超级选鞋器</small>
@@ -39,7 +48,15 @@
           <div class="wizard-panels">
           <section class="step-panel is-active" data-step="start">
             <div class="panel-center hero-panel">
-              <img class="hero-logo" src="logo-banana-clean-160.png" alt="Banana Climbing Logo" />
+              <img
+                class="hero-logo"
+                src="logo-banana-clean-128.webp"
+                alt="Banana Climbing Logo"
+                width="120"
+                height="120"
+                decoding="async"
+                fetchpriority="high"
+              />
               <p class="eyebrow">主流鞋款数据库匹配</p>
               <h2>一步一步选，最后直接出鞋款和尺码。</h2>
               <p class="panel-lead">按顺序点选几步，最后直接看推荐鞋款和试穿码。</p>
@@ -428,6 +445,6 @@
       </main>
     </div>
 
-    <script src="script.js?v=20260409-1228"></script>
+    <script src="script.js?v=20260409-1515"></script>
   </body>
 </html>

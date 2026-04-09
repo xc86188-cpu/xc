@@ -553,6 +553,7 @@ const answered = {
 
 let currentStepIndex = 0;
 let autoNextTimer = null;
+let autoNextFrame = null;
 let lastResultTriggerAt = 0;
 const RESULT_STORAGE_KEY = "banana_climbing_result_payload_v2";
 const STATE_STORAGE_KEY = "banana_climbing_result_state_v2";
@@ -585,7 +586,8 @@ const resultPageBody = document.getElementById("resultPageBody");
 const resultBackButton = document.getElementById("resultBackButton");
 const resultRestartButton = document.getElementById("resultRestartButton");
 const resultEmptyBackButton = document.getElementById("resultEmptyBackButton");
-const AUTO_NEXT_DELAY = window.matchMedia && window.matchMedia("(pointer: coarse)").matches ? 36 : 90;
+const IS_COARSE_POINTER = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+const AUTO_NEXT_DELAY = IS_COARSE_POINTER ? 0 : 72;
 
 function dedupe(values) {
   return values.filter((value, index, list) => value && list.indexOf(value) === index);
@@ -765,9 +767,12 @@ function syncPanels() {
   });
 }
 
-function syncOptionButtons() {
+function syncOptionButtons(targetField = null) {
   optionButtons.forEach((button) => {
     const field = button.dataset.field;
+    if (targetField && field !== targetField) {
+      return;
+    }
     const value = button.dataset.value === "__skip__" ? null : button.dataset.value;
     const isSelected =
       value === null ? Boolean(answered[field]) && !hasSelectedValue(field) : getSelectedValues(field).includes(value);
@@ -813,15 +818,37 @@ function syncStreetSizeFromInput() {
   return state.streetSize;
 }
 
+function clearScheduledAutoNext() {
+  if (autoNextTimer !== null) {
+    window.clearTimeout(autoNextTimer);
+    autoNextTimer = null;
+  }
+
+  if (autoNextFrame !== null) {
+    window.cancelAnimationFrame(autoNextFrame);
+    autoNextFrame = null;
+  }
+}
+
 function scheduleAutoNext() {
-  clearTimeout(autoNextTimer);
+  clearScheduledAutoNext();
+
+  if (IS_COARSE_POINTER) {
+    autoNextFrame = window.requestAnimationFrame(() => {
+      autoNextFrame = null;
+      goToStepIndex(Math.min(currentStepIndex + 1, STEP_FLOW.length - 1));
+    });
+    return;
+  }
+
   autoNextTimer = window.setTimeout(() => {
+    autoNextTimer = null;
     goToStepIndex(Math.min(currentStepIndex + 1, STEP_FLOW.length - 1));
   }, AUTO_NEXT_DELAY);
 }
 
 function goToStepIndex(index) {
-  clearTimeout(autoNextTimer);
+  clearScheduledAutoNext();
   currentStepIndex = clamp(index, 0, STEP_FLOW.length - 1);
   if (STEP_FLOW[currentStepIndex].key === "sizeFeel") {
     sizeError.hidden = true;
@@ -1024,7 +1051,7 @@ function shortenFeatureText(text, maxLength = 42) {
 function renderShoeThumbnail(shoe, variant = "primary") {
   return `
     <div class="shoe-mark shoe-mark--${variant}" aria-hidden="true">
-      <img class="shoe-mark-logo" src="logo-banana-clean-160.png" alt="" />
+      <img class="shoe-mark-logo" src="logo-banana-clean-96.webp" alt="" loading="lazy" decoding="async" />
     </div>
   `;
 }
@@ -1532,13 +1559,13 @@ function mountWizardPage() {
         }
         state[field] = Array.from(nextValues);
         answered[field] = state[field].length > 0;
-        syncOptionButtons();
+        syncOptionButtons(field);
         return;
       }
 
       state[field] = value;
       answered[field] = true;
-      syncOptionButtons();
+      syncOptionButtons(field);
       scheduleAutoNext();
     });
   });
