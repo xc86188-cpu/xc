@@ -1,0 +1,16 @@
+{
+	"name": "banana-climbing-store-api",
+	"main": "src/index.js",
+	"compatibility_date": "2026-04-09",
+	"workers_dev": true,
+	"vars": {
+		"CORS_ORIGIN": "https://banana-climbing-store.pages.dev"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "banana-climbing-store-db",
+			"database_id": "4f3d6a58-67c3-4490-902f-11540e5ee3db"
+		}
+	]
+}

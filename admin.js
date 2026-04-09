@@ -14,6 +14,16 @@ const adminRowCount = document.getElementById("adminRowCount");
 
 let latestRows = [];
 
+function getPublicConfig() {
+  return typeof databaseApi.getPublicConfig === "function"
+    ? databaseApi.getPublicConfig()
+    : { provider: null, apiBaseUrl: "", supabaseUrl: "", supabaseAnonKey: "" };
+}
+
+function isCloudflareMode() {
+  return getPublicConfig().provider === "cloudflare_api";
+}
+
 function escapeHtml(text) {
   return String(text == null ? "" : text)
     .replace(/&/g, "&amp;")
@@ -24,12 +34,12 @@ function escapeHtml(text) {
 }
 
 function formatTextList(values) {
-  return Array.isArray(values) && values.length ? values.join(" / ") : "—";
+  return Array.isArray(values) && values.length ? values.join(" / ") : "-";
 }
 
 function formatValue(value) {
   if (value === null || value === undefined || value === "") {
-    return "—";
+    return "-";
   }
 
   if (typeof value === "number") {
@@ -41,7 +51,7 @@ function formatValue(value) {
 
 function formatDateTime(value) {
   if (!value) {
-    return "—";
+    return "-";
   }
 
   const date = new Date(value);
@@ -90,17 +100,17 @@ function renderStats(rows) {
     {
       label: "近 7 天",
       value: String(weeklyCount),
-      note: "最近一周新增的提交",
+      note: "最近一周新增提交",
     },
     {
       label: "最高频场景",
-      value: topScene ? topScene[0] : "—",
-      note: topScene ? `出现 ${topScene[1]} 次` : "暂时还没有数据",
+      value: topScene ? topScene[0] : "-",
+      note: topScene ? `出现 ${topScene[1]} 次` : "暂无数据",
     },
     {
       label: "最高频推荐",
-      value: topModel ? topModel[0] : "—",
-      note: topModel ? `出现 ${topModel[1]} 次` : "暂时还没有数据",
+      value: topModel ? topModel[0] : "-",
+      note: topModel ? `出现 ${topModel[1]} 次` : "暂无数据",
     },
   ];
 
@@ -123,7 +133,7 @@ function renderRows(rows) {
   if (!rows.length) {
     adminTableBody.innerHTML = `
       <tr>
-        <td colspan="6" class="admin-empty-cell">还没有可显示的数据，先让用户在网页上跑一次选码。</td>
+        <td colspan="6" class="admin-empty-cell">暂无可显示数据，请先在前台跑一次选码。</td>
       </tr>
     `;
     return;
@@ -136,13 +146,11 @@ function renderRows(rows) {
           <td>${escapeHtml(formatDateTime(row.created_at))}</td>
           <td>${escapeHtml(formatTextList(row.scene))}</td>
           <td>${escapeHtml(
-            [row.shape0, row.toe, row.instep, row.arch, row.heel].filter(Boolean).join(" / ") || "—",
+            [row.shape0, row.toe, row.instep, row.arch, row.heel].filter(Boolean).join(" / ") || "-",
           )}</td>
-          <td>${escapeHtml(`EU ${formatValue(row.street_size)} · ${formatValue(row.feel)}`)}</td>
-          <td>${escapeHtml(
-            row.recommended_model ? `${row.recommended_brand || ""} ${row.recommended_model}`.trim() : "—",
-          )}</td>
-          <td>${escapeHtml(row.recommended_size ? `EU ${formatValue(row.recommended_size)}` : "—")}</td>
+          <td>${escapeHtml(`EU ${formatValue(row.street_size)} / ${formatValue(row.feel)}`)}</td>
+          <td>${escapeHtml(row.recommended_model ? `${row.recommended_brand || ""} ${row.recommended_model}`.trim() : "-")}</td>
+          <td>${escapeHtml(row.recommended_size ? `EU ${formatValue(row.recommended_size)}` : "-")}</td>
         </tr>
       `,
     )
@@ -150,24 +158,31 @@ function renderRows(rows) {
 }
 
 function syncPublicStatus() {
-  const publicConfig =
-    typeof databaseApi.getPublicConfig === "function"
-      ? databaseApi.getPublicConfig()
-      : { supabaseUrl: "", supabaseAnonKey: "" };
-  const hasPublicConfig = Boolean(publicConfig.supabaseUrl && publicConfig.supabaseAnonKey);
+  const config = getPublicConfig();
 
-  adminPublicStatus.textContent = hasPublicConfig
-    ? `前台写入已配置：${publicConfig.supabaseUrl}`
-    : "前台写入还没接好：请先在 database-config.js 里填写 Supabase Project URL 和 anon key。";
+  if (config.provider === "cloudflare_api") {
+    adminPublicStatus.textContent = `数据后端：Cloudflare API（${config.apiBaseUrl}）`;
+    return;
+  }
+
+  const hasSupabase = Boolean(config.supabaseUrl && config.supabaseAnonKey);
+  adminPublicStatus.textContent = hasSupabase
+    ? `数据后端：Supabase（${config.supabaseUrl}）`
+    : "数据库未配置，请先在 database-config.js 中配置 Cloudflare API 或 Supabase。";
 }
 
 function syncAuthStatus() {
   const session = typeof databaseApi.readAdminSession === "function" ? databaseApi.readAdminSession() : null;
-  const email = session && session.user && session.user.email ? session.user.email : "";
+  const identity = session && session.user && session.user.email ? session.user.email : "";
 
-  adminAuthStatus.textContent = email
-    ? `当前后台账号：${email}`
-    : "当前还没有管理员登录。请先在 Supabase Authentication 里创建一个管理员账号，再回来登录。";
+  if (identity) {
+    adminAuthStatus.textContent = `当前已登录：${identity}`;
+    return;
+  }
+
+  adminAuthStatus.textContent = isCloudflareMode()
+    ? "当前未登录。Cloudflare 模式下请输入管理员口令后登录。"
+    : "当前未登录。Supabase 模式下请输入管理员邮箱和密码。";
 }
 
 function setStatus(message, tone) {
@@ -175,13 +190,25 @@ function setStatus(message, tone) {
   adminStatusText.dataset.tone = tone || "muted";
 }
 
+function normalizeRowsPayload(result) {
+  if (Array.isArray(result?.rows)) {
+    return result.rows;
+  }
+
+  if (Array.isArray(result)) {
+    return result;
+  }
+
+  return [];
+}
+
 async function loadRows() {
   if (typeof databaseApi.fetchSizingResponses !== "function") {
-    setStatus("数据库脚本还没有加载成功。", "danger");
+    setStatus("数据库脚本未加载成功。", "danger");
     return;
   }
 
-  setStatus("正在拉取数据库记录...", "muted");
+  setStatus("正在拉取数据...", "muted");
 
   try {
     const result = await databaseApi.fetchSizingResponses({ limit: 200 });
@@ -191,14 +218,14 @@ async function loadRows() {
       renderRows(latestRows);
 
       if (result.reason === "missing-public-config") {
-        setStatus("还没填 Supabase Project URL 和 anon key。", "warn");
+        setStatus("请先完成数据库配置。", "warn");
       } else {
-        setStatus("请先登录管理员账号后再查看数据。", "warn");
+        setStatus("请先登录管理员账号。", "warn");
       }
       return;
     }
 
-    latestRows = result.rows || [];
+    latestRows = normalizeRowsPayload(result);
     renderStats(latestRows);
     renderRows(latestRows);
     setStatus(`已同步 ${latestRows.length} 条记录。`, "success");
@@ -229,30 +256,35 @@ function downloadCsv() {
 
 async function loginAdmin() {
   if (typeof databaseApi.signInAdmin !== "function") {
-    setStatus("当前还不能登录后台。", "danger");
+    setStatus("当前环境不支持管理员登录。", "danger");
     return;
   }
 
   const email = String(adminEmailInput.value || "").trim();
   const password = String(adminPasswordInput.value || "");
 
-  if (!email || !password) {
-    setStatus("请先输入后台账号邮箱和密码。", "warn");
+  if (isCloudflareMode()) {
+    if (!password) {
+      setStatus("请输入管理员口令。", "warn");
+      return;
+    }
+  } else if (!email || !password) {
+    setStatus("请输入管理员邮箱和密码。", "warn");
     return;
   }
 
-  setStatus("正在登录管理员账号...", "muted");
+  setStatus("正在登录...", "muted");
 
   try {
     const result = await databaseApi.signInAdmin({ email, password });
     if (result.skipped) {
-      setStatus("请先在 database-config.js 中填写 Supabase Project URL 和 anon key。", "warn");
+      setStatus("请先完成数据库配置。", "warn");
       return;
     }
 
     adminPasswordInput.value = "";
     syncAuthStatus();
-    setStatus("管理员登录成功。", "success");
+    setStatus("登录成功。", "success");
     await loadRows();
   } catch (error) {
     setStatus(`登录失败：${error.message || error}`, "danger");
@@ -268,7 +300,22 @@ function logoutAdmin() {
   renderStats(latestRows);
   renderRows(latestRows);
   syncAuthStatus();
-  setStatus("管理员账号已退出。", "warn");
+  setStatus("已退出登录。", "warn");
+}
+
+function setupCloudflareTokenHints() {
+  if (!isCloudflareMode()) {
+    return;
+  }
+
+  if (adminEmailInput) {
+    adminEmailInput.value = "token-admin";
+    adminEmailInput.placeholder = "标识（可选）";
+  }
+
+  if (adminPasswordInput) {
+    adminPasswordInput.placeholder = "请输入管理员口令";
+  }
 }
 
 if (
@@ -285,6 +332,7 @@ if (
   adminTableBody &&
   adminRowCount
 ) {
+  setupCloudflareTokenHints();
   syncPublicStatus();
   syncAuthStatus();
   renderStats([]);

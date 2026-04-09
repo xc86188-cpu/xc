@@ -1,6 +1,8 @@
 (function () {
-  const ADMIN_SESSION_STORAGE_KEY = "banana_admin_supabase_session_v1";
+  const ADMIN_SESSION_STORAGE_KEY = "banana_admin_database_session_v2";
   const CLIENT_ID_STORAGE_KEY = "banana_database_client_id_v1";
+  const PROVIDER_CLOUDFLARE_API = "cloudflare_api";
+  const PROVIDER_SUPABASE = "supabase";
 
   function safeStorage(type) {
     try {
@@ -30,19 +32,37 @@
     const raw = window.BANANA_DATABASE_CONFIG || {};
 
     return {
+      apiBaseUrl: normalizeUrl(raw.apiBaseUrl),
+      adminAuthMode: String(raw.adminAuthMode || "auto").trim().toLowerCase(),
       supabaseUrl: normalizeUrl(raw.supabaseUrl),
       supabaseAnonKey: String(raw.supabaseAnonKey || "").trim(),
       submissionsTable: String(raw.submissionsTable || "responses").trim() || "responses",
     };
   }
 
+  function getProvider(configValue) {
+    const config = configValue || readConfig();
+    if (config.apiBaseUrl) {
+      return PROVIDER_CLOUDFLARE_API;
+    }
+
+    if (config.supabaseUrl && config.supabaseAnonKey) {
+      return PROVIDER_SUPABASE;
+    }
+
+    return null;
+  }
+
   function getPublicConfig() {
-    return readConfig();
+    const config = readConfig();
+    return {
+      ...config,
+      provider: getProvider(config),
+    };
   }
 
   function hasPublicConfig() {
-    const config = readConfig();
-    return Boolean(config.supabaseUrl && config.supabaseAnonKey);
+    return Boolean(getProvider(readConfig()));
   }
 
   function readAdminSession() {
@@ -74,7 +94,7 @@
     return true;
   }
 
-  function buildHeaders(key, extraHeaders) {
+  function buildSupabaseHeaders(key, extraHeaders) {
     return Object.assign(
       {
         apikey: key,
@@ -84,8 +104,12 @@
     );
   }
 
-  function buildRestUrl(baseUrl, table, query) {
+  function buildSupabaseRestUrl(baseUrl, table, query) {
     return `${baseUrl}/rest/v1/${table}${query || ""}`;
+  }
+
+  function buildApiUrl(baseUrl, path, query) {
+    return `${baseUrl}${path}${query || ""}`;
   }
 
   async function readErrorText(response) {
@@ -96,19 +120,31 @@
     }
   }
 
-  async function insertSizingResponse(record) {
-    const config = readConfig();
-    if (!config.supabaseUrl || !config.supabaseAnonKey) {
-      return {
-        ok: false,
-        skipped: true,
-        reason: "missing-public-config",
-      };
+  async function insertViaCloudflareApi(config, record) {
+    const response = await fetch(buildApiUrl(config.apiBaseUrl, "/api/submissions"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(record),
+      keepalive: true,
+    });
+
+    if (!response.ok) {
+      const message = await readErrorText(response);
+      throw new Error(message || `Cloudflare API insert failed with ${response.status}`);
     }
 
-    const response = await fetch(buildRestUrl(config.supabaseUrl, config.submissionsTable), {
+    return {
+      ok: true,
+      skipped: false,
+    };
+  }
+
+  async function insertViaSupabase(config, record) {
+    const response = await fetch(buildSupabaseRestUrl(config.supabaseUrl, config.submissionsTable), {
       method: "POST",
-      headers: buildHeaders(config.supabaseAnonKey, {
+      headers: buildSupabaseHeaders(config.supabaseAnonKey, {
         "Content-Type": "application/json",
         Prefer: "return=minimal",
       }),
@@ -127,9 +163,10 @@
     };
   }
 
-  async function signInAdmin(credentials) {
+  async function insertSizingResponse(record) {
     const config = readConfig();
-    if (!config.supabaseUrl || !config.supabaseAnonKey) {
+    const provider = getProvider(config);
+    if (!provider) {
       return {
         ok: false,
         skipped: true,
@@ -137,9 +174,57 @@
       };
     }
 
+    if (provider === PROVIDER_CLOUDFLARE_API) {
+      return insertViaCloudflareApi(config, record);
+    }
+
+    return insertViaSupabase(config, record);
+  }
+
+  async function signInAdminWithCloudflare(config, credentials) {
+    const token = String(credentials.password || credentials.token || credentials.email || "").trim();
+    if (!token) {
+      throw new Error("Missing admin token");
+    }
+
+    const response = await fetch(buildApiUrl(config.apiBaseUrl, "/api/submissions", "?limit=1"), {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.status === 401) {
+      throw new Error("Invalid admin token");
+    }
+
+    if (!response.ok) {
+      const message = await readErrorText(response);
+      throw new Error(message || `Cloudflare API sign-in failed with ${response.status}`);
+    }
+
+    const adminLabel = String(credentials.email || "").trim() || "token-admin";
+    const session = {
+      provider: PROVIDER_CLOUDFLARE_API,
+      access_token: token,
+      user: {
+        email: adminLabel,
+      },
+      created_at: Date.now(),
+    };
+
+    writeAdminSession(session);
+    return {
+      ok: true,
+      skipped: false,
+      session,
+    };
+  }
+
+  async function signInAdminWithSupabase(config, credentials) {
     const response = await fetch(`${config.supabaseUrl}/auth/v1/token?grant_type=password`, {
       method: "POST",
-      headers: buildHeaders(config.supabaseAnonKey, {
+      headers: buildSupabaseHeaders(config.supabaseAnonKey, {
         "Content-Type": "application/json",
       }),
       body: JSON.stringify({
@@ -154,6 +239,7 @@
     }
 
     const session = await response.json();
+    session.provider = PROVIDER_SUPABASE;
     writeAdminSession(session);
     return {
       ok: true,
@@ -162,17 +248,28 @@
     };
   }
 
-  async function refreshAdminSession() {
+  async function signInAdmin(credentials) {
     const config = readConfig();
-    const session = readAdminSession();
-
-    if (!config.supabaseUrl || !config.supabaseAnonKey || !session || !session.refresh_token) {
-      return null;
+    const provider = getProvider(config);
+    if (!provider) {
+      return {
+        ok: false,
+        skipped: true,
+        reason: "missing-public-config",
+      };
     }
 
+    if (provider === PROVIDER_CLOUDFLARE_API) {
+      return signInAdminWithCloudflare(config, credentials || {});
+    }
+
+    return signInAdminWithSupabase(config, credentials || {});
+  }
+
+  async function refreshSupabaseSession(config, session) {
     const response = await fetch(`${config.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
       method: "POST",
-      headers: buildHeaders(config.supabaseAnonKey, {
+      headers: buildSupabaseHeaders(config.supabaseAnonKey, {
         "Content-Type": "application/json",
       }),
       body: JSON.stringify({
@@ -186,52 +283,71 @@
     }
 
     const nextSession = await response.json();
+    nextSession.provider = PROVIDER_SUPABASE;
     writeAdminSession(nextSession);
     return nextSession;
   }
 
   async function getAdminAccessToken() {
+    const config = readConfig();
     const session = readAdminSession();
     if (!session || !session.access_token) {
       return null;
     }
 
+    if (session.provider === PROVIDER_CLOUDFLARE_API || getProvider(config) === PROVIDER_CLOUDFLARE_API) {
+      return session.access_token;
+    }
+
+    if (!config.supabaseUrl || !config.supabaseAnonKey || !session.refresh_token) {
+      return null;
+    }
+
     if (session.expires_at && Number(session.expires_at) * 1000 <= Date.now() + 30 * 1000) {
-      const refreshed = await refreshAdminSession();
+      const refreshed = await refreshSupabaseSession(config, session);
       return refreshed ? refreshed.access_token : null;
     }
 
     return session.access_token;
   }
 
-  async function fetchSizingResponses(options) {
-    const settings = options || {};
-    const limit = Math.max(1, Math.min(500, Number(settings.limit) || 150));
-    const config = readConfig();
-    const accessToken = await getAdminAccessToken();
-
-    if (!config.supabaseUrl || !config.supabaseAnonKey) {
-      return {
-        ok: false,
-        skipped: true,
-        reason: "missing-public-config",
-        rows: [],
-      };
-    }
-
-    if (!accessToken) {
-      return {
-        ok: false,
-        skipped: true,
-        reason: "missing-admin-session",
-        rows: [],
-      };
-    }
-
-    const query = `?select=*&order=created_at.desc&limit=${limit}`;
-    const response = await fetch(buildRestUrl(config.supabaseUrl, config.submissionsTable, query), {
+  async function fetchViaCloudflareApi(config, accessToken, limit) {
+    const response = await fetch(buildApiUrl(config.apiBaseUrl, "/api/submissions", `?limit=${limit}`), {
       method: "GET",
-      headers: buildHeaders(config.supabaseAnonKey, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (response.status === 401) {
+      clearAdminSession();
+      return {
+        ok: false,
+        skipped: true,
+        reason: "expired-admin-session",
+        rows: [],
+      };
+    }
+
+    if (!response.ok) {
+      const message = await readErrorText(response);
+      throw new Error(message || `Cloudflare API query failed with ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+    return {
+      ok: true,
+      skipped: false,
+      rows,
+    };
+  }
+
+  async function fetchViaSupabase(config, accessToken, limit) {
+    const query = `?select=*&order=created_at.desc&limit=${limit}`;
+    const response = await fetch(buildSupabaseRestUrl(config.supabaseUrl, config.submissionsTable, query), {
+      method: "GET",
+      headers: buildSupabaseHeaders(config.supabaseAnonKey, {
         Authorization: `Bearer ${accessToken}`,
       }),
     });
@@ -257,6 +373,38 @@
       skipped: false,
       rows: Array.isArray(rows) ? rows : [],
     };
+  }
+
+  async function fetchSizingResponses(options) {
+    const settings = options || {};
+    const limit = Math.max(1, Math.min(500, Number(settings.limit) || 150));
+    const config = readConfig();
+    const provider = getProvider(config);
+
+    if (!provider) {
+      return {
+        ok: false,
+        skipped: true,
+        reason: "missing-public-config",
+        rows: [],
+      };
+    }
+
+    const accessToken = await getAdminAccessToken();
+    if (!accessToken) {
+      return {
+        ok: false,
+        skipped: true,
+        reason: "missing-admin-session",
+        rows: [],
+      };
+    }
+
+    if (provider === PROVIDER_CLOUDFLARE_API) {
+      return fetchViaCloudflareApi(config, accessToken, limit);
+    }
+
+    return fetchViaSupabase(config, accessToken, limit);
   }
 
   function escapeCsvValue(value) {

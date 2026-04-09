@@ -1,5 +1,9 @@
 window.BANANA_DATABASE_CONFIG = window.BANANA_DATABASE_CONFIG || {
-  // 创建 Supabase 项目后，把这两个值填进来。
+  // Cloudflare Pages API (primary)
+  apiBaseUrl: "https://banana-climbing-store.pages.dev",
+  adminAuthMode: "token",
+
+  // Supabase fallback (optional)
   supabaseUrl: "",
   supabaseAnonKey: "",
   submissionsTable: "responses",
