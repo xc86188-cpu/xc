@@ -555,6 +555,7 @@ let currentStepIndex = 0;
 let autoNextTimer = null;
 let autoNextFrame = null;
 let lastResultTriggerAt = 0;
+let lastSavedSubmissionFingerprint = "";
 const RESULT_STORAGE_KEY = "banana_climbing_result_payload_v2";
 const STATE_STORAGE_KEY = "banana_climbing_result_state_v2";
 const WIZARD_PAGE_URL = "index-v2.html";
@@ -562,6 +563,7 @@ const RESULT_VIEW_QUERY_KEY = "view";
 const RESULT_VIEW_QUERY_VALUE = "result";
 const RESULT_STATE_HASH_PREFIX = "#state=";
 const RESULT_PAYLOAD_HASH_PREFIX = "#payload=";
+const SUBMISSION_SOURCE = "web";
 
 const wizardView = document.getElementById("wizardView");
 const resultView = document.getElementById("resultView");
@@ -1141,6 +1143,108 @@ function buildResultPayload() {
   };
 }
 
+function createSubmissionFingerprint(record) {
+  return JSON.stringify({
+    scene: record.scene,
+    level: record.level,
+    shape0: record.shape0,
+    toe: record.toe,
+    instep: record.instep,
+    arch: record.arch,
+    heel: record.heel,
+    street_size: record.street_size,
+    feel: record.feel,
+    recommended_model: record.recommended_model,
+    recommended_size: record.recommended_size,
+  });
+}
+
+function buildSubmissionRecord(payload) {
+  const snapshot = createStateSnapshot();
+  const ranked = getRankedShoes();
+  const matched = getActiveFilterCount() ? ranked.filter((item) => item.matched.length > 0) : ranked;
+  const candidates = (matched.length ? matched : ranked).slice(0, 3);
+  const primary = candidates[0] || null;
+  const alternatives = candidates.slice(1);
+  const primaryPlan = primary ? buildSizePlan(primary.shoe.baseOffset) : null;
+  const feelOption = FEEL_OPTIONS.find((option) => option.key === snapshot.feel) || FEEL_OPTIONS[2];
+  const clientId =
+    window.BananaDatabase && typeof window.BananaDatabase.getOrCreateClientId === "function"
+      ? window.BananaDatabase.getOrCreateClientId()
+      : `banana-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+
+  return {
+    client_id: clientId,
+    source: SUBMISSION_SOURCE,
+    scene: snapshot.scene,
+    level: snapshot.level,
+    shape0: snapshot.shape0,
+    toe: snapshot.toe,
+    instep: snapshot.instep,
+    arch: snapshot.arch,
+    heel: snapshot.heel,
+    street_size: snapshot.streetSize,
+    feel: snapshot.feel,
+    recommended_brand: primary ? primary.shoe.brand : null,
+    recommended_model: primary ? primary.shoe.model : null,
+    recommended_size: primaryPlan ? primaryPlan.selected.size : null,
+    alternative_models: alternatives.map((item) => item.shoe.model),
+    matched_count: matched.length,
+    answers: snapshot,
+    recommendation: {
+      summary_text: payload && payload.summaryText ? payload.summaryText : "",
+      selected_feel_label: feelOption ? feelOption.label : "",
+      primary: primary
+        ? {
+            brand: primary.shoe.brand,
+            model: primary.shoe.model,
+            size: primaryPlan ? primaryPlan.selected.size : null,
+            matched: primary.matched,
+            percentage: primary.percentage,
+            feature: primary.shoe.feature || "",
+          }
+        : null,
+      alternatives: alternatives.map((item) => {
+        const plan = buildSizePlan(item.shoe.baseOffset);
+        return {
+          brand: item.shoe.brand,
+          model: item.shoe.model,
+          size: plan.selected.size,
+          percentage: item.percentage,
+          matched: item.matched,
+        };
+      }),
+      chips: getSelectionChips(),
+    },
+    user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+  };
+}
+
+async function saveSizingSubmission(payload) {
+  if (!window.BananaDatabase || typeof window.BananaDatabase.insertSizingResponse !== "function") {
+    return false;
+  }
+
+  const record = buildSubmissionRecord(payload);
+  const fingerprint = createSubmissionFingerprint(record);
+  if (fingerprint === lastSavedSubmissionFingerprint) {
+    return true;
+  }
+
+  try {
+    const result = await window.BananaDatabase.insertSizingResponse(record);
+    if (!result || result.skipped) {
+      return false;
+    }
+
+    lastSavedSubmissionFingerprint = fingerprint;
+    return true;
+  } catch (error) {
+    console.warn("Failed to write sizing submission:", error);
+    return false;
+  }
+}
+
 function computeResultPayloadFromSnapshot(snapshot) {
   if (!applyStateSnapshot(snapshot)) {
     return null;
@@ -1505,6 +1609,7 @@ function showResultsIfReady() {
     return false;
   }
 
+  void saveSizingSubmission(payload);
   storeResultPayload(payload);
   openResultRouteWithFallback(buildResultPageUrl());
   return true;
