@@ -23,7 +23,7 @@ jobs:
       COS_PATH_PREFIX: ${{ secrets.TENCENT_COS_PATH_PREFIX }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Validate Required Secrets
         shell: bash
