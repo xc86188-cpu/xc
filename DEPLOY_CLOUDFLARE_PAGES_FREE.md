@@ -17,8 +17,9 @@
 
 1. `CLOUDFLARE_ACCOUNT_ID`
 2. `CLOUDFLARE_API_TOKEN`
-3. `CLOUDFLARE_PAGES_PROJECT`  
-   填你创建的项目名，比如 `banana-climbing-store`
+3. `CLOUDFLARE_PAGES_PROJECT`（可选）  
+   不填时默认使用 `banana-climbing-store`。  
+   如果你的项目名不是这个，再填真实项目名。
 
 ## 3. API Token 权限建议
 
@@ -35,4 +36,3 @@
 
 Pages 支持免费绑定自定义域名。  
 如果你有 `bananaclimbingstore.com`，可以绑成 `shoe.bananaclimbingstore.com`。
-

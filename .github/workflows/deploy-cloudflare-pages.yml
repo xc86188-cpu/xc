@@ -29,7 +29,7 @@ jobs:
         run: |
           set -euo pipefail
           missing=0
-          for key in CF_ACCOUNT_ID CF_API_TOKEN CF_PAGES_PROJECT; do
+          for key in CF_ACCOUNT_ID CF_API_TOKEN; do
             if [ -z "${!key:-}" ]; then
               echo "::error::Missing secret: ${key}"
               missing=1
@@ -38,6 +38,14 @@ jobs:
           if [ "$missing" -ne 0 ]; then
             exit 1
           fi
+
+      - name: Resolve Pages Project Name
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT_NAME="${CF_PAGES_PROJECT:-banana-climbing-store}"
+          echo "CF_PAGES_PROJECT_RESOLVED=$PROJECT_NAME" >> "$GITHUB_ENV"
+          echo "Cloudflare Pages project: $PROJECT_NAME"
 
       - name: Prepare Deploy Folder
         shell: bash
@@ -67,5 +75,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy ${{ env.DEPLOY_DIR }} --project-name=${{ secrets.CLOUDFLARE_PAGES_PROJECT }} --branch=main
+          command: pages deploy ${{ env.DEPLOY_DIR }} --project-name=${{ env.CF_PAGES_PROJECT_RESOLVED }} --branch=main
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
