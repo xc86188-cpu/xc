@@ -587,7 +587,7 @@ const resultBackButton = document.getElementById("resultBackButton");
 const resultRestartButton = document.getElementById("resultRestartButton");
 const resultEmptyBackButton = document.getElementById("resultEmptyBackButton");
 const IS_COARSE_POINTER = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-const AUTO_NEXT_DELAY = IS_COARSE_POINTER ? 0 : 72;
+const AUTO_NEXT_DELAY = IS_COARSE_POINTER ? 140 : 86;
 
 function dedupe(values) {
   return values.filter((value, index, list) => value && list.indexOf(value) === index);
@@ -832,19 +832,13 @@ function clearScheduledAutoNext() {
 
 function scheduleAutoNext() {
   clearScheduledAutoNext();
-
-  if (IS_COARSE_POINTER) {
-    autoNextFrame = window.requestAnimationFrame(() => {
-      autoNextFrame = null;
+  autoNextFrame = window.requestAnimationFrame(() => {
+    autoNextFrame = null;
+    autoNextTimer = window.setTimeout(() => {
+      autoNextTimer = null;
       goToStepIndex(Math.min(currentStepIndex + 1, STEP_FLOW.length - 1));
-    });
-    return;
-  }
-
-  autoNextTimer = window.setTimeout(() => {
-    autoNextTimer = null;
-    goToStepIndex(Math.min(currentStepIndex + 1, STEP_FLOW.length - 1));
-  }, AUTO_NEXT_DELAY);
+    }, AUTO_NEXT_DELAY);
+  });
 }
 
 function goToStepIndex(index) {
