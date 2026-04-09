@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Banana Climbing 攀岩鞋选码器</title>
+    <meta
+      name="description"
+      content="一步一步选择场景、脚型、平时鞋码和脚感追求，最后直接匹配攀岩鞋款与试穿尺码。"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&family=Noto+Serif+SC:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css?v=20260409-1208" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar" id="topBar">
+        <a class="brand" href="#">
+          <img src="logo-banana-clean.png" alt="Banana Climbing Logo" />
+          <span>
+            <strong>Banana Climbing Store</strong>
+            <small>香蕉攀岩超级选鞋器</small>
+            <small class="brand-note">仅供参考 · 更多资讯请移步直播间 · 周三/周日晚20-24</small>
+          </span>
+        </a>
+      </header>
+
+      <main class="wizard-shell">
+        <div id="wizardView">
+          <div class="wizard-progress">
+          <div>
+            <p class="progress-kicker">逐步选码</p>
+            <h1 id="progressTitle">准备开始</h1>
+          </div>
+          <div class="progress-track" aria-hidden="true">
+            <span id="progressFill"></span>
+          </div>
+          <p class="progress-text" id="progressText">点击开始后，一页一页完成选择。</p>
+        </div>
+
+          <div class="wizard-panels">
+          <section class="step-panel is-active" data-step="start">
+            <div class="panel-center hero-panel">
+              <img class="hero-logo" src="logo-banana-clean.png" alt="Banana Climbing Logo" />
+              <p class="eyebrow">主流鞋款数据库匹配</p>
+              <h2>一步一步选，最后直接出鞋款和尺码。</h2>
+              <p class="panel-lead">按顺序点选几步，最后直接看推荐鞋款和试穿码。</p>
+              <div class="hero-stat-row">
+                <div>
+                  <strong id="shoeCountStart">29</strong>
+                  <span>录入鞋款</span>
+                </div>
+                <div>
+                  <strong>5 档</strong>
+                  <span>脚感尺码</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-actions">
+              <button class="primary-button" type="button" data-nav="next">开始选码</button>
+            </div>
+          </section>
+
+          <section class="step-panel" data-step="guide" hidden>
+            <div class="panel-copy">
+              <p class="eyebrow">开始前</p>
+              <h2>先快速判断脚长和脚型</h2>
+              <p class="panel-lead">不用特别专业，选最接近自己的一项就可以。</p>
+            </div>
+
+            <div class="guide-grid">
+              <article class="guide-card">
+                <h3>脚长怎么量</h3>
+                <p>脚跟贴墙站在纸上，标出最长脚趾位置。左右脚都量，取更长的一只。</p>
+              </article>
+              <article class="guide-card">
+                <h3>前掌宽窄</h3>
+                <p>脚长除以前掌最宽处，2.5 以下偏宽，2.6 到 2.8 更适中，2.8 以上偏窄。</p>
+              </article>
+              <article class="guide-card">
+                <h3>脚趾类型</h3>
+                <p>大脚趾最长是埃及脚，二趾最长是希腊脚，前三趾接近平是罗马脚。</p>
+              </article>
+              <article class="guide-card">
+                <h3>脚背 足弓 后跟</h3>
+                <p>脚背看鞋面压迫感，足弓看拱高，后跟看是否容易空杯或更贴弧形后跟。</p>
+              </article>
+            </div>
+
+            <div class="panel-actions">
+              <button class="secondary-button" type="button" data-nav="prev">返回</button>
+              <button class="primary-button" type="button" data-nav="next">我知道了，继续</button>
+            </div>
+          </section>
+
+          <section class="step-panel option-step" data-step="scene" data-field="scene" hidden>
+            <div class="panel-copy">
+              <p class="eyebrow">第 1 步</p>
+              <h2>你主要想拿它去哪里爬</h2>
+              <p class="panel-lead">这里可以多选，选你最常出现的场景就行。</p>
+            </div>
+
+            <div class="option-grid option-grid-wide">
+              <button class="option-button" type="button" data-field="scene" data-value="抱石">
+                <strong>抱石</strong>
+                <span>室内爆发和钩挂为主</span>
+              </button>
+              <button class="option-button" type="button" data-field="scene" data-value="运动攀">
+                <strong>运动攀</strong>
+                <span>综合踩点和线路体验</span>
+              </button>
+              <button class="option-button" type="button" data-field="scene" data-value="野外抱石">
+                <strong>野外抱石</strong>
+                <span>更看重耐磨和落地后的适应</span>
+              </button>
+              <button class="option-button" type="button" data-field="scene" data-value="爬板">
+                <strong>爬板</strong>
+                <span>小点和大角度更关键</span>
+              </button>
+              <button class="option-button" type="button" data-field="scene" data-value="传统攀">
+                <strong>传统攀</strong>
+                <span>更偏长时间与稳定性</span>
+              </button>
+              <button class="option-button" type="button" data-field="scene" data-value="多段/结组">
+                <strong>多段 / 结组</strong>
+                <span>穿着时长和舒适上限更重要</span>
+              </button>
+            </div>
+
+            <p class="auto-tip">可多选；如果不确定，也可以直接下一步。</p>
+
+            <div class="panel-actions">
+              <button class="secondary-button" type="button" data-nav="prev">上一步</button>
+              <button class="primary-button" type="button" data-nav="next">下一步</button>
+            </div>
+          </section>
+
+          <section class="step-panel option-step" data-step="level" data-field="level" hidden>
+            <div class="panel-copy">
+              <p class="eyebrow">第 2 步</p>
+              <h2>你现在更接近哪一类需求</h2>
+              <p class="panel-lead">阶段会影响鞋子的进攻性、容错和基础舒适度。</p>
+            </div>
+
+            <div class="option-grid">
+              <button class="option-button" type="button" data-field="level" data-value="新手入门">
+                <strong>新手入门</strong>
+                <span>更看重舒适、容错和适应期</span>
+              </button>
+              <button class="option-button" type="button" data-field="level" data-value="新手进阶">
+                <strong>新手进阶</strong>
+                <span>开始要更好的踩点和包裹</span>
+              </button>
+              <button class="option-button" type="button" data-field="level" data-value="全能进阶">
+                <strong>全能进阶</strong>
+                <span>想兼顾不同线路和训练方式</span>
+              </button>
+              <button class="option-button" type="button" data-field="level" data-value="竞技进阶">
+                <strong>竞技进阶</strong>
+                <span>优先更强的进攻性和极限表现</span>
+              </button>
+            </div>
+
+            <p class="auto-tip">点击选项后会自动进入下一步。</p>
+
+            <div class="panel-actions">
+              <button class="secondary-button" type="button" data-nav="prev">上一步</button>
+            </div>
+          </section>
+
+          <section class="step-panel option-step" data-step="shape0" data-field="shape0" hidden>
+            <div class="panel-copy">
+              <p class="eyebrow">第 3 步</p>
+              <h2>你的前掌更偏哪一种</h2>
+              <p class="panel-lead">这里决定鞋楦宽窄，是匹配准确度最高的维度之一。</p>
+            </div>
+
+            <div class="option-grid">
+              <button class="option-button" type="button" data-field="shape0" data-value="__skip__">
+                <strong>不确定</strong>
+                <span>先跳过这一项</span>
+              </button>
+              <button class="option-button" type="button" data-field="shape0" data-value="宽（2.5以下）">
+                <strong>宽</strong>
+                <span>脚长 ÷ 前掌宽约 2.5 以下</span>
+              </button>
+              <button class="option-button" type="button" data-field="shape0" data-value="适中（2.6以上）">
+                <strong>适中</strong>
+                <span>脚长 ÷ 前掌宽约 2.6 到 2.8</span>
+              </button>
+              <button class="option-button" type="button" data-field="shape0" data-value="窄（2.8以上）">
+                <strong>窄</strong>
+                <span>脚长 ÷ 前掌宽约 2.8 以上</span>
+              </button>
+            </div>
+
+            <p class="auto-tip">点击选项后会自动进入下一步。</p>
+
+            <div class="panel-actions">
+              <button class="secondary-button" type="button" data-nav="prev">上一步</button>
+            </div>
+          </section>
+
+          <section class="step-panel option-step" data-step="toe" data-field="toe" hidden>
+            <div class="panel-copy">
+              <p class="eyebrow">第 4 步</p>
+              <h2>你的脚趾更接近哪一种</h2>
+              <p class="panel-lead">这一步主要影响鞋头轮廓和最前端受力位置。</p>
+            </div>
+
+            <div class="option-grid">
+              <button class="option-button" type="button" data-field="toe" data-value="__skip__">
+                <strong>不确定</strong>
+                <span>先跳过这一项</span>
+              </button>
+              <button class="option-button" type="button" data-field="toe" data-value="埃及脚">
+                <strong>埃及脚</strong>
+                <span>大脚趾最长</span>
+              </button>
+              <button class="option-button" type="button" data-field="toe" data-value="希腊脚">
+                <strong>希腊脚</strong>
+                <span>二脚趾最长</span>
+              </button>
+              <button class="option-button" type="button" data-field="toe" data-value="罗马脚">
+                <strong>罗马脚</strong>
+                <span>前三趾长度更接近</span>
+              </button>
+            </div>
+
+            <p class="auto-tip">点击选项后会自动进入下一步。</p>
+
+            <div class="panel-actions">
+              <button class="secondary-button" type="button" data-nav="prev">上一步</button>
+            </div>
+          </section>
+
+          <section class="step-panel option-step" data-step="instep" data-field="instep" hidden>
+            <div class="panel-copy">
+              <p class="eyebrow">第 5 步</p>
+              <h2>你的脚背高低更接近哪一类</h2>
+              <p class="panel-lead">脚背越高，通常越不建议一开始就选过激进的尺码。</p>
+            </div>
+
+            <div class="option-grid">
+              <button class="option-button" type="button" data-field="instep" data-value="__skip__">
+                <strong>不确定</strong>
+                <span>先跳过这一项</span>
+              </button>
+              <button class="option-button" type="button" data-field="instep" data-value="低脚背">
+                <strong>低脚背</strong>
+                <span>更容易锁住鞋面</span>
+              </button>
+              <button class="option-button" type="button" data-field="instep" data-value="适中脚背">
+                <strong>适中脚背</strong>
+                <span>大多数鞋楦都可参考</span>
+              </button>
+              <button class="option-button" type="button" data-field="instep" data-value="高脚背">
+                <strong>高脚背</strong>
+                <span>更要注意鞋面压迫</span>
+              </button>
+            </div>
+
+            <p class="auto-tip">点击选项后会自动进入下一步。</p>
+
+            <div class="panel-actions">
+              <button class="secondary-button" type="button" data-nav="prev">上一步</button>
+            </div>
+          </section>
+
+          <section class="step-panel option-step" data-step="arch" data-field="arch" hidden>
+            <div class="panel-copy">
+              <p class="eyebrow">第 6 步</p>
+              <h2>你的足弓高低更接近哪一类</h2>
+              <p class="panel-lead">下弯鞋和更进攻的鞋型，通常会更受足弓高度影响。</p>
+            </div>
+
+            <div class="option-grid">
+              <button class="option-button" type="button" data-field="arch" data-value="__skip__">
+                <strong>不确定</strong>
+                <span>先跳过这一项</span>
+              </button>
+              <button class="option-button" type="button" data-field="arch" data-value="低足弓">
+                <strong>低足弓</strong>
+                <span>更偏平一些</span>
+              </button>
+              <button class="option-button" type="button" data-field="arch" data-value="适中足弓">
+                <strong>适中足弓</strong>
+                <span>多数鞋型可适配</span>
+              </button>
+              <button class="option-button" type="button" data-field="arch" data-value="高足弓">
+                <strong>高足弓</strong>
+                <span>更适合有弓形支撑的鞋</span>
+              </button>
+            </div>
+
+            <p class="auto-tip">点击选项后会自动进入下一步。</p>
+
+            <div class="panel-actions">
+              <button class="secondary-button" type="button" data-nav="prev">上一步</button>
+            </div>
+          </section>
+
+          <section class="step-panel option-step" data-step="heel" data-field="heel" hidden>
+            <div class="panel-copy">
+              <p class="eyebrow">第 7 步</p>
+              <h2>你的后跟轮廓更接近哪一类</h2>
+              <p class="panel-lead">这一步主要影响后跟空杯、挂脚和整体包裹感。</p>
+            </div>
+
+            <div class="option-grid">
+              <button class="option-button" type="button" data-field="heel" data-value="__skip__">
+                <strong>不确定</strong>
+                <span>先跳过这一项</span>
+              </button>
+              <button class="option-button" type="button" data-field="heel" data-value="直后跟/无后跟">
+                <strong>直后跟 / 无后跟</strong>
+                <span>后跟更平、更直</span>
+              </button>
+              <button class="option-button" type="button" data-field="heel" data-value="适中后跟">
+                <strong>适中后跟</strong>
+                <span>大多数鞋型都能试</span>
+              </button>
+              <button class="option-button" type="button" data-field="heel" data-value="弧后跟">
+                <strong>弧后跟</strong>
+                <span>更需要贴合弧形跟杯</span>
+              </button>
+            </div>
+
+            <p class="auto-tip">点击选项后会自动进入下一步。</p>
+
+            <div class="panel-actions">
+              <button class="secondary-button" type="button" data-nav="prev">上一步</button>
+            </div>
+          </section>
+
+          <section class="step-panel" data-step="sizeFeel" hidden>
+            <div class="panel-copy">
+              <p class="eyebrow">第 8 步</p>
+              <h2>输入平时鞋码，再选脚感追求</h2>
+              <p class="panel-lead">这里会决定最终推荐尺码。系统会先用表格基准码，再按你的脚感偏好做 5 档推导。</p>
+            </div>
+
+            <div class="size-feel-layout">
+              <section class="size-card">
+                <p class="mini-kicker">平时运动鞋 EU 码</p>
+                <div class="size-stepper" aria-label="平时鞋码">
+                  <button class="step-button" type="button" data-size-step="-0.5">-0.5</button>
+                  <input
+                    id="streetSizeInput"
+                    type="number"
+                    min="33"
+                    max="48"
+                    step="0.5"
+                    inputmode="decimal"
+                    placeholder="39.0"
+                    aria-label="请输入平时鞋码"
+                  />
+                  <button class="step-button" type="button" data-size-step="0.5">+0.5</button>
+                </div>
+                <p class="size-hint">填你最常穿、穿久也不会挤脚的鞋码。</p>
+              </section>
+
+              <section class="feel-card">
+                <p class="mini-kicker">脚感追求</p>
+                <div class="feel-grid" role="radiogroup" aria-label="脚感追求">
+                  <button class="feel-button" type="button" data-feel-filter="performance_plus">
+                    <strong>极致包裹</strong>
+                    <span>表格基准 -1</span>
+                  </button>
+                  <button class="feel-button" type="button" data-feel-filter="performance">
+                    <strong>适当包裹</strong>
+                    <span>表格基准 -0.5</span>
+                  </button>
+                  <button class="feel-button is-selected" type="button" data-feel-filter="balanced">
+                    <strong>平衡推荐</strong>
+                    <span>表格基准</span>
+                  </button>
+                  <button class="feel-button" type="button" data-feel-filter="comfort">
+                    <strong>适当舒适</strong>
+                    <span>表格基准 +0.5</span>
+                  </button>
+                  <button class="feel-button" type="button" data-feel-filter="comfort_plus">
+                    <strong>极致舒适</strong>
+                    <span>表格基准 +1</span>
+                  </button>
+                </div>
+              </section>
+            </div>
+
+            <p class="error-text" id="sizeError" hidden>请先输入你的平时鞋码。</p>
+
+            <div class="panel-actions">
+              <button class="secondary-button" type="button" data-nav="prev">上一步</button>
+              <button class="primary-button" type="button" id="viewResultButton">查看结果</button>
+            </div>
+          </section>
+          </div>
+        </div>
+
+        <section class="result-page-shell" id="resultView" hidden>
+          <section class="result-page-hero">
+            <h1>推荐鞋款和尺码</h1>
+            <p class="result-page-summary" id="resultPageSummary"></p>
+          </section>
+
+          <section class="result-page-empty" id="resultPageEmpty" hidden>
+            <p class="eyebrow">还没有结果</p>
+            <h2>先回去完成选码，再来看推荐。</h2>
+            <p>如果你是直接打开这个结果地址，或者浏览器没有保留上一页数据，这里就不会显示结果。</p>
+            <div class="panel-actions">
+              <a class="primary-button" id="resultEmptyBackButton" href="index-v2.html?restart=1">返回选码</a>
+            </div>
+          </section>
+
+          <section class="result-page-body" id="resultPageBody" hidden>
+            <div class="result-primary" id="resultPagePrimary"></div>
+
+            <section class="result-alt-wrap">
+              <p class="mini-kicker">备选推荐</p>
+              <div class="result-alt-list" id="resultPageAlternatives"></div>
+            </section>
+
+            <div class="panel-actions">
+              <a class="primary-button" id="resultBackButton" href="index-v2.html?resume=1">返回修改</a>
+              <a class="secondary-button" id="resultRestartButton" href="index-v2.html?restart=1">重新开始</a>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="script.js?v=20260409-1208"></script>
+  </body>
+</html>
