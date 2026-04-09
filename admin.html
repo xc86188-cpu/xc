@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Banana Climbing 数据后台</title>
+    <meta name="description" content="查看攀岩鞋选码网页的提交数据、推荐结果和导出记录。" />
+    <link rel="preload" as="image" href="logo-banana-clean-96.webp" fetchpriority="high" />
+    <link rel="stylesheet" href="styles.css?v=20260409-1816" />
+  </head>
+  <body class="admin-page-body">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="index.html">
+          <img
+            src="logo-banana-clean-96.webp"
+            alt="Banana Climbing Logo"
+            width="42"
+            height="42"
+            decoding="async"
+            fetchpriority="high"
+          />
+          <span>
+            <strong>Banana Climbing Store</strong>
+            <small>香蕉攀岩超级选鞋器</small>
+            <small class="brand-meta">推荐结果仅供参考，更多资讯请移步直播间</small>
+            <small class="brand-note">每周三/日准时开播</small>
+          </span>
+        </a>
+      </header>
+
+      <main class="wizard-shell admin-shell">
+        <section class="wizard-progress admin-progress">
+          <div>
+            <p class="progress-kicker">Data Console</p>
+            <h1>提交数据后台</h1>
+          </div>
+          <p class="progress-text">前台负责匿名写入，后台使用管理员账号登录后查看数据。这样不会把高权限密钥暴露在网页里。</p>
+        </section>
+
+        <section class="admin-card">
+          <div class="panel-copy admin-copy">
+            <p class="eyebrow">管理员登录</p>
+            <h2>先登录后台账号，再查看数据库记录</h2>
+            <p class="panel-lead">先在 Supabase 的 Authentication 里创建一个管理员账号。这里登录后，就能读取提交数据并导出 CSV。</p>
+          </div>
+
+          <div class="admin-setup-grid">
+            <label class="admin-field">
+              <span>管理员邮箱</span>
+              <input id="adminEmail" type="email" placeholder="you@example.com" />
+            </label>
+            <label class="admin-field">
+              <span>管理员密码</span>
+              <input id="adminPassword" type="password" placeholder="请输入后台登录密码" />
+            </label>
+          </div>
+
+          <div class="panel-actions admin-actions">
+            <button class="primary-button" type="button" id="adminLogin">登录后台</button>
+            <button class="secondary-button" type="button" id="adminRefreshButton">刷新数据</button>
+            <button class="secondary-button" type="button" id="adminExportButton">导出 CSV</button>
+            <button class="ghost-button" type="button" id="adminLogout">退出后台</button>
+          </div>
+
+          <p class="admin-status-line" id="adminPublicStatus"></p>
+          <p class="admin-status-line" id="adminAuthStatus"></p>
+          <p class="admin-status-line" id="adminStatusText"></p>
+        </section>
+
+        <section class="admin-stats-grid" id="adminStatsGrid"></section>
+
+        <section class="admin-card">
+          <div class="admin-table-head">
+            <div>
+              <p class="eyebrow">Latest Records</p>
+              <h2>最新提交记录</h2>
+            </div>
+            <p class="admin-row-count" id="adminRowCount">共 0 条</p>
+          </div>
+
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>提交时间</th>
+                  <th>场景</th>
+                  <th>脚型摘要</th>
+                  <th>鞋码 / 脚感</th>
+                  <th>推荐鞋款</th>
+                  <th>推荐尺码</th>
+                </tr>
+              </thead>
+              <tbody id="adminTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="database-config.js?v=20260409-1816"></script>
+    <script src="database.js?v=20260409-1816"></script>
+    <script src="admin.js?v=20260409-1816"></script>
+  </body>
+</html>
