@@ -553,12 +553,11 @@ const answered = {
 
 let currentStepIndex = 0;
 let autoNextTimer = null;
-let autoNextFrame = null;
 let lastResultTriggerAt = 0;
 let lastSavedSubmissionFingerprint = "";
 const RESULT_STORAGE_KEY = "banana_climbing_result_payload_v2";
 const STATE_STORAGE_KEY = "banana_climbing_result_state_v2";
-const WIZARD_PAGE_URL = "index-v2.html";
+const WIZARD_PAGE_URL = "index.html";
 const RESULT_VIEW_QUERY_KEY = "view";
 const RESULT_VIEW_QUERY_VALUE = "result";
 const RESULT_STATE_HASH_PREFIX = "#state=";
@@ -589,7 +588,7 @@ const resultBackButton = document.getElementById("resultBackButton");
 const resultRestartButton = document.getElementById("resultRestartButton");
 const resultEmptyBackButton = document.getElementById("resultEmptyBackButton");
 const IS_COARSE_POINTER = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-const AUTO_NEXT_DELAY = IS_COARSE_POINTER ? 140 : 86;
+const AUTO_NEXT_DELAY = IS_COARSE_POINTER ? 20 : 10;
 
 function dedupe(values) {
   return values.filter((value, index, list) => value && list.indexOf(value) === index);
@@ -825,22 +824,14 @@ function clearScheduledAutoNext() {
     window.clearTimeout(autoNextTimer);
     autoNextTimer = null;
   }
-
-  if (autoNextFrame !== null) {
-    window.cancelAnimationFrame(autoNextFrame);
-    autoNextFrame = null;
-  }
 }
 
 function scheduleAutoNext() {
   clearScheduledAutoNext();
-  autoNextFrame = window.requestAnimationFrame(() => {
-    autoNextFrame = null;
-    autoNextTimer = window.setTimeout(() => {
-      autoNextTimer = null;
-      goToStepIndex(Math.min(currentStepIndex + 1, STEP_FLOW.length - 1));
-    }, AUTO_NEXT_DELAY);
-  });
+  autoNextTimer = window.setTimeout(() => {
+    autoNextTimer = null;
+    goToStepIndex(Math.min(currentStepIndex + 1, STEP_FLOW.length - 1));
+  }, AUTO_NEXT_DELAY);
 }
 
 function goToStepIndex(index) {
@@ -1484,32 +1475,15 @@ function renderResultRoute() {
 }
 
 function openResultRouteWithFallback(targetUrl) {
-  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  const fallback = () => {
-    try {
-      const target = new URL(targetUrl, window.location.href);
-      window.history.pushState({}, document.title, `${target.pathname}${target.search}${target.hash}`);
-    } catch (error) {
-      // Ignore history failures and still render in place.
-    }
-
-    syncRouteView(true);
-    renderResultRoute();
-  };
-
   try {
-    window.location.assign(targetUrl);
+    const target = new URL(targetUrl, window.location.href);
+    window.history.pushState({}, document.title, `${target.pathname}${target.search}${target.hash}`);
   } catch (error) {
-    fallback();
-    return;
+    // Ignore history failures and still render in place.
   }
 
-  window.setTimeout(() => {
-    const nextUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (nextUrl === currentUrl) {
-      fallback();
-    }
-  }, 240);
+  syncRouteView(true);
+  renderResultRoute();
 }
 
 function syncRouteView(showResult) {

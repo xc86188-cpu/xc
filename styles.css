@@ -1218,6 +1218,32 @@ input:focus-visible {
   }
 }
 
+@media (hover: none), (pointer: coarse) {
+  .topbar,
+  .wizard-shell {
+    backdrop-filter: none;
+  }
+
+  .option-button,
+  .feel-button,
+  .primary-button,
+  .secondary-button,
+  .ghost-button,
+  .size-choice {
+    transition: none;
+  }
+
+  .option-button:hover,
+  .feel-button:hover,
+  .step-button:hover,
+  .primary-button:hover,
+  .secondary-button:hover,
+  .ghost-button:hover,
+  .size-choice:hover {
+    transform: none;
+  }
+}
+
 .admin-page-body .page-shell {
   width: min(calc(100% - 20px), 1180px);
 }
