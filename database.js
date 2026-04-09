@@ -182,20 +182,25 @@
   }
 
   async function signInAdminWithCloudflare(config, credentials) {
-    const token = String(credentials.password || credentials.token || credentials.email || "").trim();
-    if (!token) {
-      throw new Error("Missing admin token");
+    const email = String(credentials.email || "").trim().toLowerCase();
+    const password = String(credentials.password || "");
+    if (!email || !password) {
+      throw new Error("Missing admin email or password");
     }
 
-    const response = await fetch(buildApiUrl(config.apiBaseUrl, "/api/submissions", "?limit=1"), {
-      method: "GET",
+    const response = await fetch(buildApiUrl(config.apiBaseUrl, "/api/admin/login"), {
+      method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
     });
 
     if (response.status === 401) {
-      throw new Error("Invalid admin token");
+      throw new Error("Invalid admin email or password");
     }
 
     if (!response.ok) {
@@ -203,14 +208,22 @@
       throw new Error(message || `Cloudflare API sign-in failed with ${response.status}`);
     }
 
-    const adminLabel = String(credentials.email || "").trim() || "token-admin";
+    const payload = await response.json();
+    const remoteSession =
+      payload && payload.session && typeof payload.session === "object" ? payload.session : null;
+    if (!remoteSession || !remoteSession.access_token) {
+      throw new Error("Cloudflare API returned an invalid admin session");
+    }
+
     const session = {
+      ...remoteSession,
       provider: PROVIDER_CLOUDFLARE_API,
-      access_token: token,
       user: {
-        email: adminLabel,
+        email:
+          (remoteSession.user && typeof remoteSession.user.email === "string"
+            ? remoteSession.user.email
+            : email) || email,
       },
-      created_at: Date.now(),
     };
 
     writeAdminSession(session);
@@ -288,6 +301,20 @@
     return nextSession;
   }
 
+  function parseExpiryMs(value) {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+
+    const num = Number(value);
+    if (Number.isFinite(num)) {
+      return num > 1e12 ? num : num * 1000;
+    }
+
+    const timestamp = Date.parse(String(value));
+    return Number.isFinite(timestamp) ? timestamp : null;
+  }
+
   async function getAdminAccessToken() {
     const config = readConfig();
     const session = readAdminSession();
@@ -296,6 +323,12 @@
     }
 
     if (session.provider === PROVIDER_CLOUDFLARE_API || getProvider(config) === PROVIDER_CLOUDFLARE_API) {
+      const expiresAtMs = parseExpiryMs(session.expires_at);
+      if (Number.isFinite(expiresAtMs) && expiresAtMs <= Date.now() + 5 * 1000) {
+        clearAdminSession();
+        return null;
+      }
+
       return session.access_token;
     }
 

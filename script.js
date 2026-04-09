@@ -1222,18 +1222,29 @@ async function saveSizingSubmission(payload) {
     return true;
   }
 
-  try {
-    const result = await window.BananaDatabase.insertSizingResponse(record);
-    if (!result || result.skipped) {
-      return false;
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const result = await window.BananaDatabase.insertSizingResponse(record);
+      if (result && !result.skipped) {
+        lastSavedSubmissionFingerprint = fingerprint;
+        return true;
+      }
+    } catch (error) {
+      if (attempt === maxAttempts) {
+        console.warn("Failed to write sizing submission:", error);
+      }
     }
 
-    lastSavedSubmissionFingerprint = fingerprint;
-    return true;
-  } catch (error) {
-    console.warn("Failed to write sizing submission:", error);
-    return false;
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, 240 * attempt);
+      });
+    }
   }
+
+  return false;
 }
 
 function computeResultPayloadFromSnapshot(snapshot) {
@@ -1569,7 +1580,7 @@ function initializeWizard() {
   stripQueryString();
 }
 
-function showResultsIfReady() {
+async function showResultsIfReady() {
   syncStreetSizeFromInput();
 
   if (state.streetSize === null) {
@@ -1583,7 +1594,11 @@ function showResultsIfReady() {
     return false;
   }
 
-  void saveSizingSubmission(payload);
+  const saved = await saveSizingSubmission(payload);
+  if (!saved) {
+    window.alert("本次提交未成功写入后台，请检查网络后再试一次。");
+  }
+
   storeResultPayload(payload);
   openResultRouteWithFallback(buildResultPageUrl());
   return true;
@@ -1690,7 +1705,7 @@ function mountWizardPage() {
 
   streetSizeInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
-      showResultsIfReady();
+      void showResultsIfReady();
     }
   });
 
@@ -1705,7 +1720,7 @@ function mountWizardPage() {
     }
 
     lastResultTriggerAt = now;
-    showResultsIfReady();
+    void showResultsIfReady();
   };
 
   viewResultButton.addEventListener("click", triggerResultView);

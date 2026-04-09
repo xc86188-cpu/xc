@@ -23,3 +23,25 @@ CREATE TABLE IF NOT EXISTS responses (
 );
 
 CREATE INDEX IF NOT EXISTS idx_responses_created_at ON responses(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS admin_users (
+  email TEXT PRIMARY KEY,
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_users_active ON admin_users(is_active);
+
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  session_token TEXT PRIMARY KEY,
+  admin_email TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  expires_at TEXT NOT NULL,
+  FOREIGN KEY (admin_email) REFERENCES admin_users(email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_email ON admin_sessions(admin_email);
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires ON admin_sessions(expires_at);

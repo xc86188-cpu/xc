@@ -12,15 +12,25 @@ function normalizeOrigin(origin) {
   return String(origin || "").trim().replace(/\/+$/, "");
 }
 
+function parseAllowedOrigins(rawValue) {
+  const list = String(rawValue || "")
+    .split(",")
+    .map((item) => normalizeOrigin(item))
+    .filter(Boolean);
+
+  return Array.from(new Set(list));
+}
+
 function buildCorsHeaders(request, env) {
   const requestOrigin = normalizeOrigin(request.headers.get("origin"));
-  const allowedOrigin = normalizeOrigin(env.CORS_ORIGIN);
-  const allowOrigin = requestOrigin && requestOrigin === allowedOrigin ? requestOrigin : allowedOrigin || "*";
+  const allowedOrigins = parseAllowedOrigins(env.CORS_ORIGIN);
+  const firstAllowedOrigin = allowedOrigins[0] || "";
+  const allowOrigin = requestOrigin && allowedOrigins.includes(requestOrigin) ? requestOrigin : firstAllowedOrigin || "*";
 
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Token",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
@@ -30,6 +40,7 @@ function parseJsonField(value, fallback) {
   if (value == null || value === "") {
     return fallback;
   }
+
   try {
     return JSON.parse(String(value));
   } catch {
@@ -68,11 +79,197 @@ function readBearerToken(request) {
     return authHeader.slice(7).trim();
   }
 
-  return String(request.headers.get("x-admin-token") || "").trim();
+  return "";
 }
 
-function unauthorized(corsHeaders) {
-  return json({ ok: false, error: "unauthorized" }, 401, corsHeaders);
+function toSafeString(value) {
+  return value == null ? null : String(value);
+}
+
+function toSafeNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function toJsonText(value, fallback) {
+  if (Array.isArray(value) || (value && typeof value === "object")) {
+    return JSON.stringify(value);
+  }
+
+  return JSON.stringify(fallback);
+}
+
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function safeIsoTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toISOString();
+}
+
+function randomHex(bytes = 32) {
+  const array = new Uint8Array(bytes);
+  crypto.getRandomValues(array);
+  return Array.from(array, (item) => item.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Hex(text) {
+  const data = new TextEncoder().encode(String(text || ""));
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest), (item) => item.toString(16).padStart(2, "0")).join("");
+}
+
+function safeEqual(left, right) {
+  const leftText = String(left || "");
+  const rightText = String(right || "");
+  if (!leftText || !rightText || leftText.length !== rightText.length) {
+    return false;
+  }
+
+  let mismatch = 0;
+  for (let index = 0; index < leftText.length; index += 1) {
+    mismatch |= leftText.charCodeAt(index) ^ rightText.charCodeAt(index);
+  }
+
+  return mismatch === 0;
+}
+
+async function cleanupExpiredAdminSessions(env, nowIso) {
+  await env.DB.prepare(`DELETE FROM admin_sessions WHERE expires_at <= ?`).bind(nowIso).run();
+}
+
+async function verifyAdminCredentials(env, email, password) {
+  const normalizedEmail = normalizeEmail(email);
+  const passwordText = String(password || "");
+  if (!normalizedEmail || !passwordText) {
+    return null;
+  }
+
+  const row = await env.DB.prepare(
+    `
+      SELECT email, password_hash, password_salt, is_active
+      FROM admin_users
+      WHERE email = ?
+      LIMIT 1
+    `,
+  )
+    .bind(normalizedEmail)
+    .first();
+
+  if (!row || Number(row.is_active) !== 1) {
+    return null;
+  }
+
+  const salt = String(row.password_salt || "");
+  const storedHash = String(row.password_hash || "").toLowerCase();
+  if (!salt || !storedHash) {
+    return null;
+  }
+
+  const incomingHash = await sha256Hex(`${salt}:${passwordText}`);
+  if (!safeEqual(storedHash, incomingHash)) {
+    return null;
+  }
+
+  return {
+    email: normalizedEmail,
+  };
+}
+
+async function createAdminSession(env, adminEmail) {
+  const now = Date.now();
+  const expiresAt = new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const sessionToken = randomHex(32);
+
+  await env.DB.prepare(
+    `
+      INSERT INTO admin_sessions (session_token, admin_email, expires_at)
+      VALUES (?, ?, ?)
+    `,
+  )
+    .bind(sessionToken, normalizeEmail(adminEmail), expiresAt)
+    .run();
+
+  return {
+    access_token: sessionToken,
+    expires_at: expiresAt,
+    user: {
+      email: normalizeEmail(adminEmail),
+    },
+    provider: "cloudflare_api",
+    created_at: now,
+  };
+}
+
+async function authorizeAdmin(request, env) {
+  const token = readBearerToken(request);
+  if (!token) {
+    return {
+      ok: false,
+      reason: "missing-token",
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+
+  const legacyToken = String(env.ADMIN_TOKEN || "").trim();
+  if (legacyToken && safeEqual(token, legacyToken)) {
+    return {
+      ok: true,
+      identity: "legacy-token-admin",
+    };
+  }
+
+  await cleanupExpiredAdminSessions(env, nowIso);
+
+  const row = await env.DB.prepare(
+    `
+      SELECT s.admin_email, s.expires_at, u.is_active
+      FROM admin_sessions s
+      LEFT JOIN admin_users u ON u.email = s.admin_email
+      WHERE s.session_token = ?
+      LIMIT 1
+    `,
+  )
+    .bind(token)
+    .first();
+
+  if (!row) {
+    return {
+      ok: false,
+      reason: "invalid-session",
+    };
+  }
+
+  const expiresAt = safeIsoTime(row.expires_at);
+  if (!expiresAt || expiresAt <= nowIso) {
+    await env.DB.prepare(`DELETE FROM admin_sessions WHERE session_token = ?`).bind(token).run();
+    return {
+      ok: false,
+      reason: "expired-session",
+    };
+  }
+
+  if (Number(row.is_active) !== 1) {
+    return {
+      ok: false,
+      reason: "inactive-admin",
+    };
+  }
+
+  return {
+    ok: true,
+    identity: String(row.admin_email || ""),
+  };
 }
 
 export default {
@@ -86,6 +283,32 @@ export default {
 
     if (url.pathname === "/api/health") {
       return json({ ok: true, service: "banana-climbing-store-api" }, 200, corsHeaders);
+    }
+
+    if (url.pathname === "/api/admin/login" && request.method === "POST") {
+      let payload;
+      try {
+        payload = await request.json();
+      } catch (error) {
+        return json({ ok: false, error: "invalid-json" }, 400, corsHeaders);
+      }
+
+      const email = normalizeEmail(payload?.email);
+      const password = String(payload?.password || "");
+      if (!email || !password) {
+        return json({ ok: false, error: "missing-credentials" }, 400, corsHeaders);
+      }
+
+      const nowIso = new Date().toISOString();
+      await cleanupExpiredAdminSessions(env, nowIso);
+
+      const admin = await verifyAdminCredentials(env, email, password);
+      if (!admin) {
+        return json({ ok: false, error: "unauthorized" }, 401, corsHeaders);
+      }
+
+      const session = await createAdminSession(env, admin.email);
+      return json({ ok: true, session }, 200, corsHeaders);
     }
 
     if (url.pathname === "/api/submissions" && request.method === "POST") {
@@ -108,25 +331,25 @@ export default {
         `,
       )
         .bind(
-          record.client_id || null,
-          record.source || "web",
-          JSON.stringify(Array.isArray(record.scene) ? record.scene : []),
-          record.level || null,
-          record.shape0 || null,
-          record.toe || null,
-          record.instep || null,
-          record.arch || null,
-          record.heel || null,
-          typeof record.street_size === "number" ? record.street_size : null,
-          record.feel || null,
-          record.recommended_brand || null,
-          record.recommended_model || null,
-          typeof record.recommended_size === "number" ? record.recommended_size : null,
-          JSON.stringify(Array.isArray(record.alternative_models) ? record.alternative_models : []),
+          toSafeString(record.client_id),
+          toSafeString(record.source) || "web",
+          toJsonText(record.scene, []),
+          toSafeString(record.level),
+          toSafeString(record.shape0),
+          toSafeString(record.toe),
+          toSafeString(record.instep),
+          toSafeString(record.arch),
+          toSafeString(record.heel),
+          toSafeNumber(record.street_size),
+          toSafeString(record.feel),
+          toSafeString(record.recommended_brand),
+          toSafeString(record.recommended_model),
+          toSafeNumber(record.recommended_size),
+          toJsonText(record.alternative_models, []),
           Number.isFinite(Number(record.matched_count)) ? Number(record.matched_count) : 0,
-          JSON.stringify(record.answers && typeof record.answers === "object" ? record.answers : {}),
-          JSON.stringify(record.recommendation && typeof record.recommendation === "object" ? record.recommendation : {}),
-          record.user_agent || "",
+          toJsonText(record.answers, {}),
+          toJsonText(record.recommendation, {}),
+          toSafeString(record.user_agent) || "",
         )
         .run();
 
@@ -134,10 +357,9 @@ export default {
     }
 
     if (url.pathname === "/api/submissions" && request.method === "GET") {
-      const token = readBearerToken(request);
-      const adminToken = String(env.ADMIN_TOKEN || "").trim();
-      if (!token || !adminToken || token !== adminToken) {
-        return unauthorized(corsHeaders);
+      const auth = await authorizeAdmin(request, env);
+      if (!auth.ok) {
+        return json({ ok: false, error: "unauthorized" }, 401, corsHeaders);
       }
 
       const limitParam = Number(url.searchParams.get("limit"));

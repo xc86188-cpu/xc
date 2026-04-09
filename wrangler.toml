@@ -9,4 +9,4 @@ database_name = "banana-climbing-store-db"
 database_id = "4f3d6a58-67c3-4490-902f-11540e5ee3db"
 
 [vars]
-CORS_ORIGIN = "https://banana-climbing-store.pages.dev"
+CORS_ORIGIN = "https://banana-climbing-store.pages.dev,https://xc86188-cpu.github.io"

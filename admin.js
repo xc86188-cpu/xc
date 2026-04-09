@@ -83,11 +83,12 @@ function countBy(getValue) {
 }
 
 function renderStats(rows) {
-  const today = Date.now();
+  const now = Date.now();
   const weeklyCount = rows.filter((row) => {
     const createdAt = new Date(row.created_at).getTime();
-    return !Number.isNaN(createdAt) && today - createdAt <= 7 * 24 * 60 * 60 * 1000;
+    return !Number.isNaN(createdAt) && now - createdAt <= 7 * 24 * 60 * 60 * 1000;
   }).length;
+
   const topScene = countBy((row) => row.scene);
   const topModel = countBy((row) => row.recommended_model);
 
@@ -133,7 +134,7 @@ function renderRows(rows) {
   if (!rows.length) {
     adminTableBody.innerHTML = `
       <tr>
-        <td colspan="6" class="admin-empty-cell">暂无可显示数据，请先在前台跑一次选码。</td>
+        <td colspan="6" class="admin-empty-cell">暂无可显示数据，请先在前台完成一次选码提交。</td>
       </tr>
     `;
     return;
@@ -149,7 +150,9 @@ function renderRows(rows) {
             [row.shape0, row.toe, row.instep, row.arch, row.heel].filter(Boolean).join(" / ") || "-",
           )}</td>
           <td>${escapeHtml(`EU ${formatValue(row.street_size)} / ${formatValue(row.feel)}`)}</td>
-          <td>${escapeHtml(row.recommended_model ? `${row.recommended_brand || ""} ${row.recommended_model}`.trim() : "-")}</td>
+          <td>${escapeHtml(
+            row.recommended_model ? `${row.recommended_brand || ""} ${row.recommended_model}`.trim() : "-",
+          )}</td>
           <td>${escapeHtml(row.recommended_size ? `EU ${formatValue(row.recommended_size)}` : "-")}</td>
         </tr>
       `,
@@ -181,8 +184,8 @@ function syncAuthStatus() {
   }
 
   adminAuthStatus.textContent = isCloudflareMode()
-    ? "当前未登录。Cloudflare 模式下请输入管理员口令后登录。"
-    : "当前未登录。Supabase 模式下请输入管理员邮箱和密码。";
+    ? "当前未登录。请输入管理员邮箱和口令码。"
+    : "当前未登录。请输入管理员邮箱和密码。";
 }
 
 function setStatus(message, tone) {
@@ -263,13 +266,8 @@ async function loginAdmin() {
   const email = String(adminEmailInput.value || "").trim();
   const password = String(adminPasswordInput.value || "");
 
-  if (isCloudflareMode()) {
-    if (!password) {
-      setStatus("请输入管理员口令。", "warn");
-      return;
-    }
-  } else if (!email || !password) {
-    setStatus("请输入管理员邮箱和密码。", "warn");
+  if (!email || !password) {
+    setStatus("请输入管理员邮箱和口令码。", "warn");
     return;
   }
 
@@ -303,18 +301,18 @@ function logoutAdmin() {
   setStatus("已退出登录。", "warn");
 }
 
-function setupCloudflareTokenHints() {
+function setupCloudflareLoginHints() {
   if (!isCloudflareMode()) {
     return;
   }
 
   if (adminEmailInput) {
-    adminEmailInput.value = "token-admin";
-    adminEmailInput.placeholder = "标识（可选）";
+    adminEmailInput.value = "";
+    adminEmailInput.placeholder = "请输入管理员邮箱";
   }
 
   if (adminPasswordInput) {
-    adminPasswordInput.placeholder = "请输入管理员口令";
+    adminPasswordInput.placeholder = "请输入管理员口令码";
   }
 }
 
@@ -332,7 +330,7 @@ if (
   adminTableBody &&
   adminRowCount
 ) {
-  setupCloudflareTokenHints();
+  setupCloudflareLoginHints();
   syncPublicStatus();
   syncAuthStatus();
   renderStats([]);
